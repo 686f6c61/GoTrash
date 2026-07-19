@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"bufio"
+	"errors"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 
 	"basura/internal/scan"
+	"basura/internal/ui"
 )
 
 func TestParseByteSize(t *testing.T) {
@@ -83,5 +86,95 @@ func TestExportCandidatesCSV(t *testing.T) {
 	}
 	if !strings.Contains(text, "node_modules") {
 		t.Fatalf("csv row missing candidate in %q", text)
+	}
+}
+
+func TestBuildDeletionPlanSeparatesProtectedCandidates(t *testing.T) {
+	t.Parallel()
+
+	candidates := []scan.Candidate{
+		{
+			Name:      "node_modules",
+			Project:   "/Users/alice/project",
+			Path:      "/Users/alice/project/node_modules",
+			SizeBytes: 25,
+		},
+		{
+			Name:      "node_modules",
+			Project:   "/opt/homebrew/lib",
+			Path:      "/opt/homebrew/lib/node_modules",
+			SizeBytes: 50,
+		},
+	}
+
+	plan := buildDeletionPlan(candidates)
+	if len(plan.Actionable) != 1 {
+		t.Fatalf("buildDeletionPlan actionable = %d, want 1", len(plan.Actionable))
+	}
+	if len(plan.SkippedResults) != 1 {
+		t.Fatalf("buildDeletionPlan skipped = %d, want 1", len(plan.SkippedResults))
+	}
+	if plan.ActionableBytes != 25 {
+		t.Fatalf("buildDeletionPlan actionable bytes = %d, want 25", plan.ActionableBytes)
+	}
+}
+
+func TestConfirmDeletionUsesActionableSelection(t *testing.T) {
+	t.Parallel()
+
+	plan := buildDeletionPlan([]scan.Candidate{
+		{
+			Name:      "node_modules",
+			Project:   "/Users/alice/project",
+			Path:      "/Users/alice/project/node_modules",
+			SizeBytes: 25,
+		},
+		{
+			Name:      "node_modules",
+			Project:   "/opt/homebrew/lib",
+			Path:      "/opt/homebrew/lib/node_modules",
+			SizeBytes: 50,
+		},
+	})
+
+	reader := bufio.NewReader(strings.NewReader("BORRAR\n"))
+	if err := confirmDeletion(plan, ui.NewStyles(), reader); err != nil {
+		t.Fatalf("confirmDeletion returned error: %v", err)
+	}
+}
+
+func TestDeleteCandidatesPreservesSkippedResults(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	target := tempDir + "/node_modules"
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+
+	plan := buildDeletionPlan([]scan.Candidate{
+		{
+			Name:      "node_modules",
+			Project:   tempDir,
+			Path:      target,
+			SizeBytes: 25,
+		},
+		{
+			Name:      "node_modules",
+			Project:   "/opt/homebrew/lib",
+			Path:      "/opt/homebrew/lib/node_modules",
+			SizeBytes: 50,
+		},
+	})
+
+	results, freed := deleteCandidates(plan)
+	if len(results) != 2 {
+		t.Fatalf("deleteCandidates results = %d, want 2", len(results))
+	}
+	if freed != 25 {
+		t.Fatalf("deleteCandidates freed = %d, want 25", freed)
+	}
+	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected %q to be deleted, stat err = %v", target, err)
 	}
 }

@@ -54,3 +54,48 @@ func TestScanFindsMatchingDirectory(t *testing.T) {
 		t.Fatalf("candidate project = %q, want %q", result.Candidates[0].Project, project)
 	}
 }
+
+func TestShouldSkipDirBlocksProtectedPathsForAnyRoot(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		base string
+		root string
+	}{
+		{
+			name: "protected root",
+			path: "/Library",
+			base: "Library",
+			root: "/Library",
+		},
+		{
+			name: "protected child under custom root",
+			path: "/private/var/db/cache",
+			base: "cache",
+			root: "/private",
+		},
+		{
+			name: "package manager path",
+			path: "/opt/homebrew/lib/node_modules",
+			base: "node_modules",
+			root: "/opt/homebrew",
+		},
+	}
+
+	for _, test := range tests {
+		if !shouldSkipDir(test.path, test.base, test.root) {
+			t.Fatalf("%s: expected shouldSkipDir to block %q", test.name, test.path)
+		}
+	}
+}
+
+func TestShouldSkipDirAllowsUserProjectRoot(t *testing.T) {
+	t.Parallel()
+
+	root := "/Users/alice/Code/demo"
+	if shouldSkipDir(root, "demo", root) {
+		t.Fatalf("expected user project root %q to be scannable", root)
+	}
+}

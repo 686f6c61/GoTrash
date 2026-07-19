@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"basura/internal/safety"
 )
 
 type Options struct {
@@ -159,20 +161,14 @@ func normalizeNames(raw []string) map[string]struct{} {
 }
 
 func shouldSkipDir(path string, base string, root string) bool {
+	if safety.IsProtectedPath(path) {
+		return true
+	}
 	if path == root {
 		return false
 	}
 	if _, ok := alwaysSkipNames[base]; ok {
 		return true
-	}
-
-	if root == string(filepath.Separator) {
-		cleanPath := filepath.Clean(path)
-		for _, prefix := range protectedSystemPrefixes {
-			if cleanPath == prefix || strings.HasPrefix(cleanPath, prefix+string(filepath.Separator)) {
-				return true
-			}
-		}
 	}
 
 	return false

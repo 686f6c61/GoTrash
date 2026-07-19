@@ -58,9 +58,9 @@ GoTrah está especialmente orientado a perfiles técnicos que trabajan con mucho
 
 ## Estado
 
-La base del proyecto ya está operativa y usable. Esta primera versión se centra en resolver bien el problema principal antes de entrar en distribución más pulida o features secundarias.
+La base del proyecto ya está operativa y usable. La versión `0.2.0` ya no es solo un primer prototipo funcional: además del flujo principal de limpieza, incorpora una capa más seria de hardening técnico, validación y seguridad operativa.
 
-Versión inicial: `0.1.0`
+Versión actual: `0.2.0`
 
 Plataforma objetivo:
 
@@ -70,11 +70,13 @@ Estado actual:
 
 - Funciona desde código fuente y ya se puede usar como herramienta real para revisar y borrar carpetas pesadas.
 - El flujo guiado ya está operativo y es la forma recomendada de empezar a usarlo.
-- La distribución por Homebrew se puede añadir después, cuando la primera release quede más asentada.
+- Las protecciones de borrado y escaneo ya están más endurecidas y cubren mejor rutas sensibles del sistema.
+- La CI y el proceso de release ya incluyen validaciones de seguridad para reducir regresiones antes de publicar nuevas versiones.
+- La distribución por Homebrew se puede añadir después, cuando la línea `0.2.x` quede más asentada.
 
 ## Instalación
 
-Por ahora, la forma recomendada es usarlo directamente desde el repositorio o compilar un binario local. Eso permite iterar rápido sobre el proyecto mientras se estabiliza la `0.1.x`, sin depender todavía de una distribución externa.
+Por ahora, la forma recomendada es usarlo directamente desde el repositorio o compilar un binario local. Eso permite iterar rápido sobre el proyecto mientras se estabiliza la `0.2.x`, sin depender todavía de una distribución externa.
 
 ### Ejecutarlo directamente
 
@@ -225,6 +227,8 @@ Hay varias protecciones ya activas:
 - Si eliges una ruta protegida, la marca y la salta en el borrado, en lugar de tratarla como un error confuso.
 - Al escanear `/`, tolera errores de permisos y puede mostrarlos si usas `--show-errors`, algo normal en macOS moderno.
 
+Desde `0.2.0`, esas protecciones están más alineadas entre sí. La política de rutas protegidas ya no depende tanto del flujo concreto que uses, y el resumen previo al borrado refleja mejor qué se va a eliminar realmente y qué se va a omitir.
+
 También conviene tener claros algunos límites de la versión actual:
 
 - El borrado actual es real y no mueve nada a la papelera, así que conviene revisar bien la selección.
@@ -244,4 +248,4 @@ Si es la primera vez que lo usas, este es el recorrido que mejor equilibrio da e
 
 ## Changelog
 
-El historial de versiones está en [CHANGELOG.md](./CHANGELOG.md), empezando por la primera release `0.1.0`.
+El historial de versiones está en [CHANGELOG.md](./CHANGELOG.md), incluyendo la release actual `0.2.0` y la release inicial `0.1.0`.

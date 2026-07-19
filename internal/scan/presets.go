@@ -52,17 +52,3 @@ var alwaysSkipNames = map[string]struct{}{
 	".DocumentRevisions-V100": {},
 	".TemporaryItems":         {},
 }
-
-var protectedSystemPrefixes = []string{
-	"/System",
-	"/Applications",
-	"/Library/Apple",
-	"/Library/Developer",
-	"/private/preboot",
-	"/private/var/db",
-	"/private/var/vm",
-	"/usr",
-	"/bin",
-	"/sbin",
-	"/dev",
-}

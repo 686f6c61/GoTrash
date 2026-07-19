@@ -115,14 +115,19 @@ func runInteractiveMenu(styles ui.Styles) error {
 				fmt.Println(styles.Hint("No se ha borrado nada."))
 				continue
 			}
-			if err := confirmDeletion(selected, styles, reader); err != nil {
+			plan := buildDeletionPlan(selected)
+			if len(plan.Actionable) == 0 {
+				fmt.Println(styles.Warn("Todas las rutas seleccionadas estan protegidas. No se ha borrado nada."))
+				continue
+			}
+			if err := confirmDeletion(plan, styles, reader); err != nil {
 				if err == errDeletionCancelled {
 					fmt.Println(styles.Hint("Operacion cancelada."))
 					continue
 				}
 				return err
 			}
-			results, freed := deleteCandidates(selected)
+			results, freed := deleteCandidates(plan)
 			printDeleteResults(results, freed, styles)
 			if err := waitForMainMenu(reader, styles); err != nil {
 				return err
@@ -137,14 +142,19 @@ func runInteractiveMenu(styles ui.Styles) error {
 				fmt.Println(styles.Hint("No se ha borrado nada."))
 				continue
 			}
-			if err := confirmDeletion(selected, styles, reader); err != nil {
+			plan := buildDeletionPlan(selected)
+			if len(plan.Actionable) == 0 {
+				fmt.Println(styles.Warn("Todas las rutas seleccionadas estan protegidas. No se ha borrado nada."))
+				continue
+			}
+			if err := confirmDeletion(plan, styles, reader); err != nil {
 				if err == errDeletionCancelled {
 					fmt.Println(styles.Hint("Operacion cancelada."))
 					continue
 				}
 				return err
 			}
-			results, freed := deleteCandidates(selected)
+			results, freed := deleteCandidates(plan)
 			printDeleteResults(results, freed, styles)
 			if err := waitForMainMenu(reader, styles); err != nil {
 				return err
@@ -162,14 +172,19 @@ func runInteractiveMenu(styles ui.Styles) error {
 			fmt.Println(styles.Info("CSV exportado en: " + savedPath))
 			continue
 		case postActionAll:
-			if err := confirmDeletion(result.Candidates, styles, reader); err != nil {
+			plan := buildDeletionPlan(result.Candidates)
+			if len(plan.Actionable) == 0 {
+				fmt.Println(styles.Warn("Todas las rutas encontradas estan protegidas. No se ha borrado nada."))
+				continue
+			}
+			if err := confirmDeletion(plan, styles, reader); err != nil {
 				if err == errDeletionCancelled {
 					fmt.Println(styles.Hint("Operacion cancelada."))
 					continue
 				}
 				return err
 			}
-			results, freed := deleteCandidates(result.Candidates)
+			results, freed := deleteCandidates(plan)
 			printDeleteResults(results, freed, styles)
 			if err := waitForMainMenu(reader, styles); err != nil {
 				return err
@@ -424,8 +439,11 @@ func selectProjects(candidates []scan.Candidate, styles ui.Styles, reader *bufio
 		groups := scan.GroupByProject(candidates)
 		for index, group := range groups {
 			warning := ""
-			if deletionGuardReason(group.Project) != "" {
-				warning = "protegido"
+			for _, candidate := range group.Candidates {
+				if deletionGuardReason(candidate.Path) != "" {
+					warning = "incluye rutas protegidas"
+					break
+				}
 			}
 			items = append(items, tuiChecklistItem{
 				Label:       fmt.Sprintf("▤ #%d  %d carpetas", index+1, group.Count),

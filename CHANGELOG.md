@@ -4,6 +4,37 @@ Todos los cambios relevantes de este proyecto se documentan aquí.
 
 Este proyecto sigue una convención simple de versiones semánticas.
 
+## [0.2.0] - 2026-07-19
+
+Release centrada en endurecimiento técnico, seguridad operativa y calidad del proyecto.
+
+### Added
+
+- Nuevo paquete interno para centralizar la política de rutas protegidas y reutilizarla entre escaneo y borrado.
+- Nuevos tests para guardrails de borrado, rutas protegidas y utilidades de UI.
+- Cobertura básica añadida para paquetes que antes no tenían tests propios.
+- Informe de auditoría técnica y de seguridad documentado en el repositorio.
+
+### Changed
+
+- La confirmación de borrado ahora calcula solo las carpetas realmente eliminables y separa con más claridad las rutas que se van a omitir.
+- La selección por proyectos refleja mejor cuándo un grupo incluye rutas protegidas.
+- El estado del proyecto en `README` se actualiza para reflejar una línea `0.2.x` más madura que la release inicial.
+- El proceso de release usa `gh release` en lugar de una acción third-party para publicar assets.
+
+### Security
+
+- La política de protección de rutas sensibles se unifica entre escaneo y borrado para evitar inconsistencias operativas.
+- El proyecto sube su toolchain declarada a `go 1.25.8`, corrigiendo la vulnerabilidad alcanzable detectada durante la auditoría.
+- Se integra `govulncheck` en CI y en el workflow de release.
+- Las GitHub Actions críticas quedan pinneadas por SHA para reducir riesgo de supply chain.
+
+### Quality
+
+- `go test ./...` pasa con la nueva base de tests.
+- `go test -cover ./...` pasa y deja cobertura explícita en `cmd`, `internal/scan`, `internal/safety` e `internal/ui`.
+- `go vet ./...`, `go build ./...` y `govulncheck ./...` quedan validados sobre esta versión.
+
 ## [0.1.0] - 2026-04-02
 
 Primera versión pública funcional de GoTrah.

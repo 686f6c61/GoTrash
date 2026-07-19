@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"basura/internal/safety"
 	"basura/internal/scan"
 	"basura/internal/ui"
 
@@ -33,6 +34,12 @@ type deleteResult struct {
 	Err       error
 	Skipped   bool
 	Message   string
+}
+
+type deletionPlan struct {
+	Actionable      []scan.Candidate
+	SkippedResults  []deleteResult
+	ActionableBytes int64
 }
 
 var opts cliOptions
@@ -120,8 +127,14 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	plan := buildDeletionPlan(selected)
+	if len(plan.Actionable) == 0 {
+		fmt.Println(styles.Warn("Todas las rutas seleccionadas estan protegidas. No se ha borrado nada."))
+		return nil
+	}
+
 	if !opts.yes {
-		if err := confirmDeletion(selected, styles, reader); err != nil {
+		if err := confirmDeletion(plan, styles, reader); err != nil {
 			if errors.Is(err, errDeletionCancelled) {
 				fmt.Println(styles.Hint("Operacion cancelada."))
 				return nil
@@ -130,7 +143,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	results, freed := deleteCandidates(selected)
+	results, freed := deleteCandidates(plan)
 	printDeleteResults(results, freed, styles)
 	return nil
 }
@@ -536,24 +549,37 @@ func parseSelection(input string, total int) ([]int, error) {
 
 var errDeletionCancelled = errors.New("deletion cancelled")
 
-func confirmDeletion(candidates []scan.Candidate, styles ui.Styles, reader *bufio.Reader) error {
-	var totalBytes int64
-	protectedCount := 0
-	for _, candidate := range candidates {
-		totalBytes += candidate.SizeBytes
-		if reason := deletionGuardReason(candidate.Path); reason != "" {
-			protectedCount++
-		}
+func buildDeletionPlan(candidates []scan.Candidate) deletionPlan {
+	plan := deletionPlan{
+		Actionable: make([]scan.Candidate, 0, len(candidates)),
 	}
 
-	if protectedCount > 0 {
-		fmt.Println(styles.Warn(fmt.Sprintf("%d rutas seleccionadas estan protegidas y se omitiran.", protectedCount)))
+	for _, candidate := range candidates {
+		if reason := deletionGuardReason(candidate.Path); reason != "" {
+			plan.SkippedResults = append(plan.SkippedResults, deleteResult{
+				Candidate: candidate,
+				Skipped:   true,
+				Message:   reason,
+			})
+			continue
+		}
+
+		plan.Actionable = append(plan.Actionable, candidate)
+		plan.ActionableBytes += candidate.SizeBytes
+	}
+
+	return plan
+}
+
+func confirmDeletion(plan deletionPlan, styles ui.Styles, reader *bufio.Reader) error {
+	if len(plan.SkippedResults) > 0 {
+		fmt.Println(styles.Warn(fmt.Sprintf("%d rutas seleccionadas estan protegidas y se omitiran.", len(plan.SkippedResults))))
 	}
 
 	message := fmt.Sprintf(
 		"Vas a borrar %d carpetas y liberar aprox. %s. Escribe BORRAR para continuar: ",
-		len(candidates),
-		ui.FormatBytes(totalBytes),
+		len(plan.Actionable),
+		ui.FormatBytes(plan.ActionableBytes),
 	)
 
 	fmt.Print(styles.Prompt(message))
@@ -567,19 +593,10 @@ func confirmDeletion(candidates []scan.Candidate, styles ui.Styles, reader *bufi
 	return nil
 }
 
-func deleteCandidates(candidates []scan.Candidate) ([]deleteResult, int64) {
-	results := make([]deleteResult, 0, len(candidates))
+func deleteCandidates(plan deletionPlan) ([]deleteResult, int64) {
+	results := append([]deleteResult(nil), plan.SkippedResults...)
 	var freed int64
-	for _, candidate := range candidates {
-		if reason := deletionGuardReason(candidate.Path); reason != "" {
-			results = append(results, deleteResult{
-				Candidate: candidate,
-				Skipped:   true,
-				Message:   reason,
-			})
-			continue
-		}
-
+	for _, candidate := range plan.Actionable {
 		err := os.RemoveAll(candidate.Path)
 		results = append(results, deleteResult{
 			Candidate: candidate,
@@ -630,26 +647,8 @@ func shortProjectName(path string) string {
 	return base
 }
 
-var protectedDeletionPrefixes = []string{
-	"/opt/homebrew",
-	"/usr/local",
-	"/opt/local",
-	"/Library",
-	"/System",
-	"/Applications",
-	"/usr",
-	"/bin",
-	"/sbin",
-}
-
 func deletionGuardReason(path string) string {
-	cleanPath := filepath.Clean(path)
-	for _, prefix := range protectedDeletionPrefixes {
-		if cleanPath == prefix || strings.HasPrefix(cleanPath, prefix+string(filepath.Separator)) {
-			return "ruta gestionada por sistema o package manager"
-		}
-	}
-	return ""
+	return safety.GuardReason(path)
 }
 
 func explainDeletionErr(err error) string {
